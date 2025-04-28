@@ -179,16 +179,6 @@ fun useControlPage(): ScaffoldExt {
                     }
                 )
             }
-
-            PageItemCard(
-                title = "了解 GKD",
-                subtitle = "查阅规则文档和常见问题",
-                imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
-                onClick = {
-                    navController.toDestinationsNavigator()
-                        .navigate(WebViewPageDestination(initUrl = HOME_PAGE_URL))
-                }
-            )
             Spacer(modifier = Modifier.height(EmptyHeight))
         }
     }
