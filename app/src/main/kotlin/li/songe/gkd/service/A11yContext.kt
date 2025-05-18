@@ -1,6 +1,7 @@
 package li.songe.gkd.service
 
 import android.graphics.Rect
+import android.os.Build
 import android.util.Log
 import android.util.LruCache
 import android.view.accessibility.AccessibilityNodeInfo
@@ -250,21 +251,22 @@ class A11yContext(
         }
     }
 
-    private var tempNode: AccessibilityNodeInfo? = null
     private val tempRect = Rect()
-    private var tempVid: CharSequence? = null
+    private var tempRectNode: AccessibilityNodeInfo? = null
     private fun getTempRect(n: AccessibilityNodeInfo): Rect {
-        if (n !== tempNode) {
+        if (n !== tempRectNode) {
             n.getBoundsInScreen(tempRect)
-            tempNode = n
+            tempRectNode = n
         }
         return tempRect
     }
 
+    private var tempVid: CharSequence? = null
+    private var tempVidNode: AccessibilityNodeInfo? = null
     private fun getTempVid(n: AccessibilityNodeInfo): CharSequence? {
-        if (n !== tempNode) {
+        if (n !== tempVidNode) {
             tempVid = n.getVid()
-            tempNode = n
+            tempVidNode = n
         }
         return tempVid
     }
@@ -280,7 +282,13 @@ class A11yContext(
         "clickable" -> node.isClickable
         "focusable" -> node.isFocusable
         "checkable" -> node.isCheckable
-        "checked" -> node.isChecked
+        "checked" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            node.checked
+        } else {
+            @Suppress("DEPRECATION")
+            node.isChecked
+        }
+
         "editable" -> node.isEditable
         "longClickable" -> node.isLongClickable
         "visibleToUser" -> node.isVisibleToUser

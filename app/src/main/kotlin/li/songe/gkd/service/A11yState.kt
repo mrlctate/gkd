@@ -15,6 +15,7 @@ import li.songe.gkd.data.ActionLog
 import li.songe.gkd.data.ActivityLog
 import li.songe.gkd.data.AppRule
 import li.songe.gkd.data.GlobalRule
+import li.songe.gkd.data.ResetMatchType
 import li.songe.gkd.data.ResolvedRule
 import li.songe.gkd.data.SubsConfig
 import li.songe.gkd.db.DbSet
@@ -46,6 +47,7 @@ private val activityLogMutex by lazy { Mutex() }
 
 private var activityLogCount = 0
 private var lastActivityChangeTime = 0L
+
 @Synchronized
 fun updateTopActivity(topActivity: TopActivity) {
     if (topActivity.activityId == null && activityTaskManagerFlow.value != null && topActivity.appId == launcherAppId) {
@@ -156,30 +158,20 @@ fun getAndUpdateCurrentRules(): ActivityRule {
         )
         if (idChanged) {
             appChangeTime = t
-            allRules.globalRules.forEach { r ->
-                r.actionDelayTriggerTime = 0
-                r.actionCount.value = 0
-                r.matchChangedTime = t
-            }
-            allRules.appIdToRules[oldActivityRule.topActivity.appId]?.forEach { r ->
-                r.actionDelayTriggerTime = 0
-                r.actionCount.value = 0
-                r.matchChangedTime = t
-            }
-            newActivityRule.appRules.forEach { r ->
-                r.actionDelayTriggerTime = 0
-                r.actionCount.value = 0
-                r.matchChangedTime = t
-            }
+            allRules.globalRules.forEach { it.resetState(t) }
+            allRules.appIdToRules[oldActivityRule.topActivity.appId]?.forEach { it.resetState(t) }
+            newActivityRule.appRules.forEach { it.resetState(t) }
         } else {
             newActivityRule.currentRules.forEach { r ->
-                if (r.resetMatchTypeWhenActivity) {
-                    r.actionDelayTriggerTime = 0
-                    r.actionCount.value = 0
-                }
-                if (!oldActivityRule.currentRules.contains(r)) {
-                    // 新增规则
-                    r.matchChangedTime = t
+                when (r.resetMatchType) {
+                    ResetMatchType.App -> null
+                    ResetMatchType.Activity -> r.resetState(t)
+                    ResetMatchType.Match -> {
+                        // is new rule
+                        if (!oldActivityRule.currentRules.contains(r)) {
+                            r.resetState(t)
+                        }
+                    }
                 }
             }
         }

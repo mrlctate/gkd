@@ -42,7 +42,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.blankj.utilcode.util.KeyboardUtils
 import com.ramcosta.composedestinations.generated.destinations.AppConfigPageDestination
@@ -60,10 +59,10 @@ import li.songe.gkd.ui.style.EmptyHeight
 import li.songe.gkd.ui.style.appItemPadding
 import li.songe.gkd.ui.style.menuPadding
 import li.songe.gkd.util.LIST_PLACEHOLDER_KEY
+import li.songe.gkd.util.LocalMainViewModel
 import li.songe.gkd.util.LocalNavController
 import li.songe.gkd.util.SafeR
 import li.songe.gkd.util.SortTypeOption
-import li.songe.gkd.util.launchTry
 import li.songe.gkd.util.mapHashCode
 import li.songe.gkd.util.ruleSummaryFlow
 import li.songe.gkd.util.storeFlow
@@ -75,8 +74,9 @@ val appListNav = BottomNavItem(
 
 @Composable
 fun useAppListPage(): ScaffoldExt {
-    val navController = LocalNavController.current
     val context = LocalActivity.current as MainActivity
+    val mainVm = LocalMainViewModel.current
+    val navController = LocalNavController.current
     val softwareKeyboardController = LocalSoftwareKeyboardController.current
 
     val vm = viewModel<HomeVm>()
@@ -92,10 +92,11 @@ fun useAppListPage(): ScaffoldExt {
     } else {
         null
     }
+    val appListKey by mainVm.appListKeyFlow.collectAsState()
     val showSearchBar by vm.showSearchBarFlow.collectAsState()
     val resetKey = orderedAppInfos.mapHashCode { it.id }
-    val scrollBehavior = key(resetKey) { TopAppBarDefaults.enterAlwaysScrollBehavior() }
-    val listState = key(resetKey) { rememberLazyListState() }
+    val scrollBehavior = key(resetKey, appListKey) { TopAppBarDefaults.enterAlwaysScrollBehavior() }
+    val listState = key(resetKey, appListKey) { rememberLazyListState() }
     return ScaffoldExt(
         navItem = appListNav,
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -127,9 +128,7 @@ fun useAppListPage(): ScaffoldExt {
                         modifier = Modifier.clickable(
                             enabled = orderedAppInfos.isNotEmpty(),
                             onClick = throttle {
-                                if (orderedAppInfos.isNotEmpty()) {
-                                    vm.viewModelScope.launchTry { listState.scrollToItem(0) }
-                                }
+                                mainVm.appListKeyFlow.update { it + 1 }
                             }
                         ),
                         text = appListNav.label,

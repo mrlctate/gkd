@@ -139,6 +139,8 @@ open class A11yService : AccessibilityService(), OnCreate, OnA11yConnected, OnA1
                 )
             } ?: throw RpcError("没有查询到节点")
 
+            LogUtils.d("查询到节点", gkdAction, AttrInfo.info2data(targetNode, 0, 0))
+
             if (gkdAction.action == null) {
                 // 仅查询
                 return ActionResult(
@@ -185,7 +187,6 @@ private fun A11yService.useMatchRule() {
     var lastContentEventTime = 0L
     val queryEvents = mutableListOf<A11yEvent>()
     var queryTaskJob: Job?
-
 
     fun newQueryTask(
         byEvent: A11yEvent? = null,
@@ -264,6 +265,15 @@ private fun A11yService.useMatchRule() {
             }
         }
         val activityRule = getAndUpdateCurrentRules()
+        activityRule.currentRules.forEach { rule ->
+            if (rule.status == RuleStatus.Status3 && rule.matchDelayJob == null) {
+                rule.matchDelayJob = scope.launch(A11yService.actionThread) {
+                    delay(rule.matchDelay)
+                    rule.matchDelayJob = null
+                    newQueryTask(delayRule = rule)
+                }
+            }
+        }
         if (activityRule.skipMatch) {
             // 如果当前应用没有规则/暂停匹配, 则不去调用获取事件节点避免阻塞
             return@launchQuery checkFutureJob()
@@ -291,15 +301,7 @@ private fun A11yService.useMatchRule() {
             // https://github.com/gkd-kit/gkd/issues/915
             if (activityRule !== getAndUpdateCurrentRules()) break
             if (delayRule != null && delayRule !== rule) continue
-            val statusCode = rule.status
-            if (statusCode == RuleStatus.Status3 && rule.matchDelayJob == null) {
-                rule.matchDelayJob = scope.launch(A11yService.actionThread) {
-                    delay(rule.matchDelay)
-                    rule.matchDelayJob = null
-                    newQueryTask(delayRule = rule)
-                }
-            }
-            if (statusCode != RuleStatus.StatusOk) continue
+            if (rule.status != RuleStatus.StatusOk) continue
             if (byForced && !rule.checkForced()) continue
             lastNode?.let { n ->
                 val refreshOk = (!lastNodeUsed) || (try {
@@ -348,7 +350,8 @@ private fun A11yService.useMatchRule() {
             val target = a11yContext.queryRule(rule, nodeVal) ?: continue
             if (activityRule !== getAndUpdateCurrentRules()) break
             if (rule.checkDelay() && rule.actionDelayJob == null) {
-                rule.actionDelayJob = scope.launch(A11yService.actionThread) {
+                LogUtils.d("startDelay", rule.statusText(), AttrInfo.info2data(target, 0, 0))
+                rule.actionDelayJob = scope.launchTry(A11yService.actionThread) {
                     delay(rule.actionDelay)
                     rule.actionDelayJob = null
                     newQueryTask(delayRule = rule)
