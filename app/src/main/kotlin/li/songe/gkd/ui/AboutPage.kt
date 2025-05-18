@@ -206,7 +206,7 @@ fun AboutPage() {
                     .itemPadding()
             ) {
                 Text(
-                    text = "开源地址",
+                    text = "开源地址1111",
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Text(
